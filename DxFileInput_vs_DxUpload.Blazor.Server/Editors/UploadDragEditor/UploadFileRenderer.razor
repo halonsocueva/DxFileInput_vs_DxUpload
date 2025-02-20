@@ -1,0 +1,151 @@
+﻿﻿@using System.Reactive
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Web
+@using DevExpress.Blazor
+@using DevExpress.XtraPrinting.Native
+@using TszWeb.Blazor.Server.Editors.UploadDargEditor
+@inject NavigationManager NavigationManager
+
+
+<style>
+    .custom-drop-zone {
+        padding: 0 !important;
+        border-style: dashed;
+        border-width: 2px !important;
+        height: 230px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(183, 183, 183, 0.1);
+    }
+
+        .custom-drop-zone.custom-drop-zone-hover {
+            border-style: solid;
+        }
+
+        .custom-drop-zone svg {
+            width: 42px;
+            height: 42px;
+        }
+
+        .custom-drop-zone > *:not(#overviewDemoSelectButton) {
+            pointer-events: none;
+        }
+
+    .drop-file-icon {
+        background-size: contain;
+        mask-repeat: no-repeat;
+        -webkit-mask-repeat: no-repeat;
+        background-position: center center;
+        background-color: #ADB5BD;
+        width: 48px;
+        height: 48px;
+        -webkit-mask-image: url("../images/icons/drop-file.svg");
+        mask-image: url("../images/icons/drop-file.svg");
+    }
+
+    .drop-file-label {
+        font-weight: 500;
+        font-size: 1rem;
+    }
+</style>
+
+<DxButton RenderStyle="ButtonRenderStyle.Secondary"
+          RenderStyleMode="@ButtonRenderStyleMode.Contained"
+          Text="Change Component"
+          Click="HandleButtonClick" />
+
+@if (ShowFileInput)
+{
+    <h2>DxFileInput</h2>
+    <div id="overviewDemoDropZone" class="card custom-drop-zone rounded-3 w-100 m-0">
+        <span class="drop-file-icon mb-3"></span>
+        <span class="drop-file-label">Drag and Drop File Here</span><span class="m-1">or</span>
+        <DxButton Id="overviewDemoSelectButton"
+                  CssClass="m-1"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Text="Select File" />
+    </div>
+    <DxFileInput @ref="fileInput"
+                 Visible="true"
+                 AllowMultiFileUpload="false"
+                 MaxFileCount="1"
+                 ExternalSelectButtonCssSelector="#overviewDemoSelectButton"
+                 ExternalDropZoneCssSelector="#overviewDemoDropZone"
+                 ExternalDropZoneDragOverCssClass="custom-drop-zone-hover"
+                 MaxFileSize="15000000"
+                 FilesUploading="UploadStarted">
+    </DxFileInput>
+}
+else{
+    <h2>DxUpload</h2>
+    <div id="overviewDemoDropZone" class="card custom-drop-zone rounded-3 w-100 m-0">
+        <span class="drop-file-icon mb-3"></span>
+        <span class="drop-file-label">Drag and Drop File Here</span><span class="m-1">or</span>
+        <DxButton Id="overviewDemoSelectButton"
+                  CssClass="m-1"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Text="Select File" />
+    </div>
+    <DxUpload Name="myFile"
+              Visible="@(!ShowFileInput)"
+              ExternalSelectButtonCssSelector="#overviewDemoSelectButton"
+              ExternalDropZoneCssSelector="#overviewDemoDropZone"
+              ExternalDropZoneDragOverCssClass="custom-drop-zone-hover"
+              MaxFileSize="15000000"
+              UploadUrl="@GetUploadUrl("api/Upload/Upload/")"
+              SelectedFilesChanged="@SelectedFilesChanged">
+    </DxUpload>
+}
+
+
+
+@code {
+    [Parameter]
+    public UploadFileModel ComponentModel { get; set; }
+    public static RenderFragment Create(UploadFileModel componentModel) =>@<UploadFileRenderer ComponentModel=@componentModel />;
+
+    #region DxFileInput
+
+    [Inject] public IConfiguration configuration { get; set; }
+    [Inject] public IJSRuntime JSRuntime { get; set; }
+    private bool ShowFileInput { get; set; }
+    DxFileInput fileInput;
+
+    protected override Task OnInitializedAsync()
+    {
+        return base.OnInitializedAsync();
+    }
+
+
+    protected async Task UploadStarted(FilesUploadingEventArgs args)
+    {
+        await JSRuntime.InvokeVoidAsync("xaf.loadingIndicator.show");
+        var file = args.Files[0];
+        using var stream = new System.IO.MemoryStream();
+        await file.OpenReadStream(file.Size).CopyToAsync(stream);
+        stream.Position = 0;
+
+        await JSRuntime.InvokeVoidAsync("xaf.loadingIndicator.hide");
+    }
+
+    #endregion
+
+    #region DxUpload
+    protected void SelectedFilesChanged(IEnumerable<UploadFileInfo> files)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+    protected string GetUploadUrl(string url)
+    {
+        return NavigationManager.ToAbsoluteUri(url).AbsoluteUri;
+    }
+
+    #endregion
+
+    private void HandleButtonClick()
+    {
+        ShowFileInput = !ShowFileInput;
+    }
+}
